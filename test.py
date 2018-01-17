@@ -1,0 +1,1 @@
+from operators.mailchimp_to_s3_operator import MailchimpToS3Operator
