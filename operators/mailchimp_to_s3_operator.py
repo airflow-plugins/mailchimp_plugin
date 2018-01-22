@@ -6,7 +6,7 @@ import urllib.request
 import tarfile
 
 from airflow.hooks.S3_hook import S3Hook
-from airflow.models import BaseOperator
+from airflow.models import BaseOperator, SkipMixin
 from airflow.utils.decorators import apply_defaults
 
 from mailchimp_plugin.hooks.mailchimp_hook import MailchimpHook
@@ -32,7 +32,7 @@ mappings = {
 }
 
 
-class MailchimpToS3Operator(BaseOperator):
+class MailchimpToS3Operator(BaseOperator, SkipMixin):
     """
     Make a query against Mailchimp and write the resulting data to s3
     """
@@ -147,7 +147,7 @@ class MailchimpToS3Operator(BaseOperator):
         )
 
         self.hook.get_conn()
-        
+
         logging.info(
             "Making request for"
             " {0} object".format(self.mailchimp_resource)
@@ -166,28 +166,43 @@ class MailchimpToS3Operator(BaseOperator):
             results = self.read_file(url, results_field='sites')
 
             if self.mailchimp_resource == 'connected_sites_details':
-                endpoints = ["/connected-sites/{}".format(result['id']) for result in results]
+                endpoints = [
+                    "/connected-sites/{}".format(result['id']) for result in results]
                 url = self.hook.run_batch(endpoints)
                 results = self.read_file(url)
         else:
             results = self.hook.run_query(self.mailchimp_resource)
 
         # write the results to a temporary file and save that file to s3
-        with NamedTemporaryFile("w") as tmp:
-            for result in filterd_results:
-                tmp.write(json.dumps(result) + '\n')
+        if len(results) == 0 or results is None:
+            logging.info("No records pulled from Mailchimp.")
+            downstream_tasks = context['task'].get_flat_relatives(
+                upstream=False)
+            logging.info('Skipping downstream tasks...')
+            logging.debug("Downstream task_ids %s", downstream_tasks)
 
-            tmp.flush()
+            if downstream_tasks:
+                self.skip(context['dag_run'],
+                          context['ti'].execution_date,
+                          downstream_tasks)
+            return True
 
-            dest_s3 = S3Hook(s3_conn_id=self.s3_conn_id)
-            dest_s3.load_file(
-                filename=tmp.name,
-                key=self.s3_key,
-                bucket_name=self.s3_bucket,
-                replace=True
+        else:
+            # Write the results to a temporary file and save that file to s3.
+            with NamedTemporaryFile("w") as tmp:
+                for result in results:
+                    filtered_result = self.filter_fields(result)
+                    tmp.write(json.dumps(filtered_result) + '\n')
 
-            )
-            dest_s3.connection.close()
-            tmp.close()
+                tmp.flush()
 
-        logging.info("Query finished!")
+                dest_s3 = S3Hook(s3_conn_id=self.s3_conn_id)
+                dest_s3.load_file(
+                    filename=tmp.name,
+                    key=self.s3_key,
+                    bucket_name=self.s3_bucket,
+                    replace=True
+
+                )
+                dest_s3.connection.close()
+                tmp.close()
