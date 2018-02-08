@@ -15,7 +15,8 @@ njson format. The parameters it can accept include the following.
 
 - `mailchimp_conn_id`: The Airflow id used to store the Mailchimp credentials.
 - `mailchimp_resource`: The mailchimp resource we are fetching data from.
-- `mailchimp_args`: S3 connection id from Airflow.  
+- `mailchimp_args`: Mailchimp extra args
+- `s3_conn_id`: S3 connection id from Airflow.  
 - `s3_bucket`: The output s3 bucket.  
 - `s3_key`: The input s3 key.
 - `s3_bucket`: The s3 bucket where the result should be stored
