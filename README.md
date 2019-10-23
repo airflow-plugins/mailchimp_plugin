@@ -1,6 +1,6 @@
 # Plugin - Mailchimp to S3
 
-This plugin moves data from the [Trello](https://developers.trello.com/v1.0) API to S3. Implemented for  camapigns, connected-sites connected-sites-details, conversations,  conversations-details, lists, lists-details, reports, reports-details.
+This plugin moves data from the Mailchimp API to S3. Implemented for  camapigns, connected-sites connected-sites-details, conversations,  conversations-details, lists, lists-details, reports, reports-details.
 ## Hooks
 ### MailchimpHook
 This hook handles the authentication and request to Mailchimp. Based on [python-mailchimp](https://github.com/charlesthk/python-mailchimp)
